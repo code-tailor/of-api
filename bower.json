@@ -1,0 +1,17 @@
+{
+  "name": "of-api",
+  "description": "JS utility library to send Offline First API request using service-worker.",
+  "main": "index.js",
+  "authors": [
+    "Pradip Vadasak"
+  ],
+  "license": "ISC",
+  "homepage": "https://github.com/code-tailor/of-api",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}

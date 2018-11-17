@@ -1,0 +1,19 @@
+{
+  "name": "of-api",
+  "version": "1.0.0",
+  "description": "JS utility library to send Offline First API request using service-worker. ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/code-tailor/of-api.git"
+  },
+  "author": "Pradip Vadasak",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/code-tailor/of-api/issues"
+  },
+  "homepage": "https://github.com/code-tailor/of-api#readme"
+}
