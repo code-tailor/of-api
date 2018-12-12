@@ -273,7 +273,9 @@ element.
         }
         
         _onError: function(error) {
-          this._updateLastResponse(null);
+          if(error.status){
+            this._updateLastResponse(null);
+          }
           this._setLastError(error);
           this._setCacheLoading(false);
           this._setLoading(false);
