@@ -1,1 +1,304 @@
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
 <script src="of-api.js"></script>
+
+<!--
+The `of-api` element to send Offline First API request using service-worker..
+
+    <of-api
+        url="https://www.googleapis.com/youtube/v3/search"
+        params='{"part":"snippet", "q":"polymer", "key": "YOUTUBE_API_KEY", "type": "video"}'
+        on-cache-success="handleCachedResponse"
+        on-success="handleResponse"></of-api>
+
+Note: The `params` attribute must be double quoted JSON. With `auto` set to `true`, the element performs a request whenever
+its `url`, `params` or `headers` properties are changed. Automatically generated
+requests will be debounced in the case that multiple attributes are changed
+sequentially.
+
+Dependency Note: This element has dependency of lodash library, `_.isEqual` method is used.
+
+You can trigger a request by calling `generateRequest` on the
+element.
+
+@demo demo/index.html
+@hero hero.svg
+-->
+
+<dom-module id="of-api">
+  <template>
+  </template>
+  <script>
+    class OfAPI extends Polymer.Element {
+      /**
+      * Fired when a cached response is received.
+      *
+      * @event cache-success
+      */
+      
+      /**
+       * Fired when a response is received.
+       *
+       * @event success
+       */
+       
+       /**
+        * Fired when an error is received.
+        *
+        * @event error
+        */
+      static get is() {
+        return 'of-api';
+      }
+
+      static get properties() {
+        return {
+          /**
+           * Set network status (True if the browser is online, and false if the browser is offline)
+           * When user network status changed from offline to online, Request will be sent if any pending.
+           */
+          online: {
+            type: Boolean,
+            observer: '_onOnlineChanged'
+          },
+          /**
+           * If true, automatically performs an Ajax request when either `url` or
+           * `params` changes.
+           */
+          auto: {
+            type: Boolean,
+            value: false
+          },
+          /**
+           * The URL target of the request.
+           */
+          url: {
+            type: String
+          },
+
+          /**
+           * An object that contains query parameters to be appended to the
+           * specified `url` when generating a request.
+           */
+          params: {
+            type: Object
+          },
+          
+          /**
+           * HTTP request headers to send.
+           *
+           * Example:
+           *
+           *     <of-api
+           *         url="http://somesite.com"
+           *         headers='{"X-Requested-With": "XMLHttpRequest"}'></of-api>
+           */
+          headers: {
+            type: Object,
+            value: function() {
+              return {};
+            }
+          },
+          
+          /**
+           * A method to provide authentication headers async.
+           * Must return promise.
+           */
+          authHeaders: {
+            type: Object,
+            value: null
+          },
+          
+          /**
+           * True until cache response
+           */
+          cacheLoading: {
+            type: Boolean,
+            notify: true,
+            readOnly: true
+          },
+          
+          /**
+           * True while lastRequest is in flight.
+           */
+          loading: {
+            type: Boolean,
+            notify: true,
+            readOnly: true
+          },
+
+          /**
+           * lastRequest's response.
+           *
+           * Note that lastResponse is set when lastRequest received cached response,
+           * And, when lastRequest finishes, lastResponse is updated if anything is changed and lastError is set
+           * so if loading is true, then lastResponse and lastError will correspond
+           * to the result of the previous request.
+           *
+           * @type {Object}
+           */
+          lastResponse: {
+            type: Object,
+            notify: true,
+            readOnly: true
+          },
+
+          /**
+           * lastRequest's error, if any.
+           *
+           * @type {Object}
+           */
+          lastError: {
+            type: Object,
+            notify: true,
+            readOnly: true
+          },
+          
+          /**
+           * Length of time in milliseconds to debounce multiple automatically generated requests.
+           */
+          debounceDuration: {
+            type: Number,
+            value: 0,
+            notify: true
+          },
+          
+          /**
+           * Header name to send service worker to customize strategy (Default: sw-strategy).
+           */
+          swStrategyHeaderName: {
+            type: String,
+            value: 'sw-strategy'
+          },
+          
+          _connected: {
+            type: Boolean,
+            value: false
+          },
+          _requestId: {
+            type: Number,
+            value: 0
+          }
+        }
+        
+        static get observers() {
+          return ['_requestOptionsChanged(url, params.*, headers, authHeaders, auto, _connected)'];
+        }
+        
+        connectedCallback() {
+          super.connectedCallback();
+          this._connected = true;
+        }
+        
+        disconnectedCallback() {
+          super.disconnectedCallback();
+          this._connected = false;
+        }
+        
+        _requestOptionsChanged: function() {
+          this.debounce('generate-request', function() {
+            if (this.url == null || !this._connected) {
+              return;
+            }
+
+            if (this.auto) {
+              this.generateRequest();
+            }
+          }, this.debounceDuration);
+        }
+        
+        /**
+         * Performs an AJAX request to the specified URL.
+         */
+        generateRequest: function() {
+          var self = this;
+          self._setCacheLoading(true);
+          self._setLoading(true);
+          
+          self._requestId = self._requestId + 1;
+          window.ct.ofApi(self._generateReqOptions());
+        }
+        
+        _generateReqOptions: function(){
+          var self = this;
+          return {
+            url: self.url,
+            params: self.params,
+            authHeaders: self.authHeaders,
+            swStrategyHeaderName: self.swStrategyHeaderName,
+            cacheSuccess: self._wrapCallback(self._onCacheSuccess),
+            success: self._wrapCallback(self._onSuccess),
+            error: self._wrapCallback(self._onError)
+          };
+        }
+        
+        _wrapCallback: function(callback){
+          var self = this;
+          var reqId = self._requestId;
+          
+          return function(){
+            if(reqId === self._requestId){
+              callback.apply(self, arguments);
+            }
+          }
+        }
+        
+        _generateNetwrokRequest: function(){
+          var self = this;
+          self._setLoading(true);
+          
+          self._requestId = self._requestId + 1;
+          var options = self._generateReqOptions();
+          delete options.cacheSuccess;
+          window.ct.ofApi(options);
+        }
+        
+        _onOnlineChanged: function(newValue, oldValue){
+          if(newValue && oldValue === false && this.url && this._connected && !this.loading
+              && this.lastError && !this.lastError.status) {
+            this._generateNetwrokRequest();
+          }
+        }
+        
+        _onCacheSuccess: function(response) {
+          this._updateLastResponse(response.response);
+          this._setCacheLoading(false);
+          this.dispatchEvent(new CustomEvent('cache-success', {detail: response}));
+        }
+        
+        _onSuccess: function(response) {
+          this._updateLastResponse(response.response);
+          this._setCacheLoading(false);
+          this._setLoading(false);
+          this.dispatchEvent(new CustomEvent('success', {detail: response}));
+        }
+        
+        _onError: function(error) {
+          this._updateLastResponse(null);
+          this._setLastError(error);
+          this._setCacheLoading(false);
+          this._setLoading(false);
+          this.dispatchEvent(new CustomEvent('error', {detail: error}));
+        }
+        
+        _updateLastResponse: function(response){
+          var byValueSame = response === this.lastResponse;
+          
+          if(typeof _ === 'function' && typeof _.isEqual === 'function') {
+            if(_.isEqual(response, this.lastResponse)){
+              byValueSame = true;
+            }
+          }else {
+            console.warn('Of-api: Lodash library is required to prevent unnecessory output property notification');
+          }
+          
+          if(!byValueSame){
+            this._setLastResponse(response);
+          }
+        }
+        
+    }
+
+    // Associate the new class with an element name
+    customElements.define(OfAPI.is, OfAPI);
+  </script>
+</dom-module>

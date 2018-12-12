@@ -47,8 +47,9 @@
     return url;
   }
   
-  function requestHeaders(inputHeaders, swStrategy) {
+  function requestHeaders(inputHeaders, swStrategyHeaderName, swStrategy) {
     var headers = {};
+    swStrategyHeaderName = swStrategyHeaderName || 'sw-strategy';
     
     var header;
     if (typeof inputHeaders === 'object') {
@@ -58,9 +59,9 @@
     }
     
     if (swStrategy) {
-      headers['sw-strategy'] = swStrategy;
+      headers[swStrategyHeaderName] = swStrategy;
     } else {
-      delete  headers['sw-strategy'];
+      delete  headers[swStrategyHeaderName];
     }
     return headers;
   }
@@ -101,22 +102,49 @@
     });
   }
   
+  function _fetchCacheOnly(url, request){
+    var cacheOnlyHeaders = requestHeaders(request.headers, request.swStrategyHeaderName, 'cacheOnly');
+    _fetch(url, cacheOnlyHeaders, request.cacheSuccess);
+  }
+  
+  function _fetchNetworkOnlyWithCache(url, request, authHeadersObj){
+    var headers = Object.assign({}, request.headers);
+    
+    if(authHeadersObj && typeof authHeadersObj === 'object'){
+      headers = Object.assign(headers, authHeadersObj);
+    }
+    
+    var networkOnlyWithCacheHeaders = requestHeaders(headers, request.swStrategyHeaderName, 'networkOnlyWithCache');
+    _fetch(url, networkOnlyWithCacheHeaders, request.success, request.error);
+  }
+  
   /**
    * To send Offline First API request using service-worker.
    * @param {string} request.url - Specifies the URL to send the request to.
    * @param {object} request.params - An object that contains query parameters to be appended to the specified url when generating a request. 
    * @param {object} request.headers - HTTP request headers to send.
+   * @param {string} request.swStrategyHeaderName - Header name to send service worker to customize strategy (Default: sw-strategy).
+   * @param {Function} request.authHeaders - HTTP request auth headers to send. Must return promise
    * @param {Function} request.success - A function to be run when the request succeeds
    * @param {Function} request.error - A function to run if the request fails.
    * @param {Function} request.cacheSuccess - A function to be run when the cached response is available in service worker
    */
   function ofApi(request){
     var url = requestUrl(request.url, request.params);
-    var cacheOnlyHeaders = requestHeaders(request.headers, 'cacheOnly');
-    _fetch(url, cacheOnlyHeaders, request.cacheSuccess);
+    if(request.cacheSuccess){
+      _fetchCacheOnly(url, request);
+    }
     
-    var networkOnlyWithCacheHeaders = requestHeaders(request.headers, 'networkOnlyWithCache');
-    _fetch(url, networkOnlyWithCacheHeaders, request.success, request.error);
+    if(!request.authHeaders){
+      _fetchNetworkOnlyWithCache(url, request);
+      return;
+    }
+    
+    request.authHeaders.then(function(headers){
+      _fetchNetworkOnlyWithCache(url, request, headers);
+    }).catch(function(){
+      _fetchNetworkOnlyWithCache(url, request);
+    });
   };
   
   window.ct = window.ct || {};
