@@ -1,4 +1,4 @@
-<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../polymer/polymer-element.html">
 <script src="of-api.js"></script>
 
 <!--
@@ -25,10 +25,10 @@ element.
 -->
 
 <dom-module id="of-api">
-  <template>
+    <template>
   </template>
   <script>
-    class OfAPI extends Polymer.Element {
+    class OfApi extends Polymer.Element {
       /**
       * Fired when a cached response is received.
       *
@@ -179,6 +179,7 @@ element.
             value: 0
           }
         }
+      }
         
         static get observers() {
           return ['_requestOptionsChanged(url, params.*, headers, authHeaders, auto, _connected)'];
@@ -194,22 +195,23 @@ element.
           this._connected = false;
         }
         
-        _requestOptionsChanged: function() {
-          this.debounce('generate-request', function() {
-            if (this.url == null || !this._connected) {
-              return;
-            }
-
-            if (this.auto) {
-              this.generateRequest();
-            }
-          }, this.debounceDuration);
+        _requestOptionsChanged() {
+          this._requestDebouncer = Polymer.Debouncer.debounce(this._generateRequestDebouncer, Polymer.Async.timeOut.after(
+            this.debounceDuration), () => {
+              if (this.url == null || !this._connected) {
+                return;
+              }
+              
+              if (this.auto) {
+                this.generateRequest();
+              }
+          });
         }
         
         /**
          * Performs an AJAX request to the specified URL.
          */
-        generateRequest: function() {
+        generateRequest() {
           var self = this;
           self._setCacheLoading(true);
           self._setLoading(true);
@@ -218,7 +220,7 @@ element.
           window.ct.ofApi(self._generateReqOptions());
         }
         
-        _generateReqOptions: function(){
+        _generateReqOptions(){
           var self = this;
           return {
             url: self.url,
@@ -231,7 +233,7 @@ element.
           };
         }
         
-        _wrapCallback: function(callback){
+        _wrapCallback(callback){
           var self = this;
           var reqId = self._requestId;
           
@@ -242,7 +244,7 @@ element.
           }
         }
         
-        _generateNetwrokRequest: function(){
+        _generateNetwrokRequest(){
           var self = this;
           self._setLoading(true);
           
@@ -252,27 +254,27 @@ element.
           window.ct.ofApi(options);
         }
         
-        _onOnlineChanged: function(newValue, oldValue){
+        _onOnlineChanged(newValue, oldValue){
           if(newValue && oldValue === false && this.url && this._connected && !this.loading
               && this.lastError && !this.lastError.status) {
             this._generateNetwrokRequest();
           }
         }
         
-        _onCacheSuccess: function(response) {
+        _onCacheSuccess(response) {
           this._updateLastResponse(response.response);
           this._setCacheLoading(false);
           this.dispatchEvent(new CustomEvent('cache-success', {detail: response}));
         }
         
-        _onSuccess: function(response) {
+        _onSuccess(response) {
           this._updateLastResponse(response.response);
           this._setCacheLoading(false);
           this._setLoading(false);
           this.dispatchEvent(new CustomEvent('success', {detail: response}));
         }
         
-        _onError: function(error) {
+        _onError(error) {
           if(error.status){
             this._updateLastResponse(null);
           }
@@ -282,7 +284,7 @@ element.
           this.dispatchEvent(new CustomEvent('error', {detail: error}));
         }
         
-        _updateLastResponse: function(response){
+        _updateLastResponse(response){
           var byValueSame = response === this.lastResponse;
           
           if(typeof _ === 'function' && typeof _.isEqual === 'function') {
@@ -297,10 +299,9 @@ element.
             this._setLastResponse(response);
           }
         }
-        
     }
 
     // Associate the new class with an element name
-    customElements.define(OfAPI.is, OfAPI);
+    window.customElements.define(OfApi.is, OfApi);
   </script>
 </dom-module>

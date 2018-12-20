@@ -140,7 +140,7 @@
       return;
     }
     
-    request.authHeaders.then(function(headers){
+    request.authHeaders().then(function(headers){
       _fetchNetworkOnlyWithCache(url, request, headers);
     }).catch(function(){
       _fetchNetworkOnlyWithCache(url, request);
