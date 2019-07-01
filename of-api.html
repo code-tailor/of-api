@@ -209,6 +209,13 @@ element.
         }
         
         /**
+         * when request is aborted success callback is not call
+         */
+        abort() {
+          this._requestId = this._requestId + 1;
+        }
+        
+        /**
          * Performs an AJAX request to the specified URL.
          */
         generateRequest() {
