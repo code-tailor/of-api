@@ -102,8 +102,8 @@
     });
   }
   
-  function _fetchCacheOnly(url, request){
-    var cacheOnlyHeaders = requestHeaders(request.headers, request.swStrategyHeaderName, 'cacheOnly');
+  function _fetchCacheOnly(url, request, headers){
+    var cacheOnlyHeaders = requestHeaders(headers, request.swStrategyHeaderName, 'cacheOnly');
     _fetch(url, cacheOnlyHeaders, request.cacheSuccess);
   }
   
@@ -132,11 +132,15 @@
   function ofApi(request){
     var url = requestUrl(request.url, request.params);
     if(request.cacheSuccess){
-      _fetchCacheOnly(url, request);
+      request.authHeaders().then(function(headers){
+        _fetchCacheOnly(url, request, headers);
+      })
     }
     
     if(!request.authHeaders){
-      _fetchNetworkOnlyWithCache(url, request);
+      request.authHeaders().then(function(headers){
+        _fetchNetworkOnlyWithCache(url, request, headers);
+      })
       return;
     }
     
